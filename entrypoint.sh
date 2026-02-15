@@ -38,6 +38,8 @@ PID=$!
 
 # Print connection info
 echo "Connect with: ssh -p $PORT $(whoami)@$(hostname)"
+# Explicitly print user for easier parsing if needed in future
+echo "User: $(whoami)"
 
 # Wait for SSHD to exit
 wait $PID

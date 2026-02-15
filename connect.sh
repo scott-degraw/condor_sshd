@@ -124,16 +124,28 @@ fi
 
 echo "Waiting for job to be ready..."
 
-# Wait for connection string
-while ! ssh "$REMOTE_HOST" "grep -m1 'Starting SSHD' $REMOTE_DIR/job.out &>/dev/null"; do
+
+# Wait for connection string and user info
+while ! ssh "$REMOTE_HOST" "grep -m1 'Connect with: ssh' $REMOTE_DIR/job.out &>/dev/null"; do
     sleep 5
 done
 
-JOB_PORT="$(ssh $REMOTE_HOST "sed -n -E 's/Starting SSHD on port ([0-9]+).*/\1/p' $REMOTE_DIR/job.out 2>/dev/null")"
+JOB_PORT="$(ssh $REMOTE_HOST "sed -n -E 's/.*Starting SSHD on port ([0-9]+).*/\1/p' $REMOTE_DIR/job.out 2>/dev/null" | head -n 1)"
+JOB_USER="$(ssh $REMOTE_HOST "sed -n -E 's/.*Connect with: ssh -p [0-9]+ ([^@]+)@.*/\1/p' $REMOTE_DIR/job.out 2>/dev/null" | head -n 1)"
 
 if [ -z "$JOB_PORT" ]; then
     echo "Error: Could not determine Job Port."
     exit 1
+fi
+
+if [ -z "$JOB_USER" ]; then
+    echo "Warning: Could not determine Job User. Defaulting to 'whoami' output from job if possible, or local user."
+    # Try one more way or just fallback
+    JOB_USER=$(ssh "$REMOTE_HOST" "condor_q -constraint 'JobBatchName == \"$BATCH_NAME\"' -af Owner" | head -n 1)
+fi
+
+if [ -z "$JOB_USER" ]; then
+    JOB_USER="$USER" # Fallback to local user
 fi
 
 CLUSTER_ID=$(ssh "$REMOTE_HOST" "condor_q -constraint 'JobBatchName == \"$BATCH_NAME\"' -af ClusterId" | head -n 1)
@@ -145,6 +157,7 @@ fi
 
 echo "Job ClusterId: $CLUSTER_ID"
 echo "Job Port: $JOB_PORT"
+echo "Job User: $JOB_USER"
 
 # Check if we already have a remote tunnel running for this batch?
 # For now, we'll just start a new one.
@@ -190,7 +203,7 @@ echo "Starting local tunnel..."
 ssh -NfL "localhost:$LOCAL_PORT:localhost:$TRAFFIC_PORT" "$REMOTE_HOST"
 sleep 2
 
-SSH_CMD="ssh -p $LOCAL_PORT -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $USER@localhost"
+SSH_CMD="ssh -p $LOCAL_PORT -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no $JOB_USER@localhost"
 
 echo ""
 echo "Job is ready."
@@ -206,7 +219,7 @@ echo "For VSCode / Antigravity, add this to your ~/.ssh/config:"
 echo "Host $CONFIG_HOST"
 echo "    HostName localhost"
 echo "    Port $LOCAL_PORT"
-echo "    User $USER"
+echo "    User $JOB_USER"
 echo "    UserKnownHostsFile /dev/null"
 echo "    StrictHostKeyChecking no"
 echo ""
