@@ -31,6 +31,9 @@ ls -l key.pub
 cp key.pub authorized_keys
 chmod 600 authorized_keys
 
+# Explicitly print user for easier parsing if needed in future
+echo "User: $(whoami)"
+
 # Start SSHD
 echo "Starting SSHD on port $PORT"
 /usr/sbin/sshd -e -f $(pwd)/sshd_config -D &
@@ -38,8 +41,6 @@ PID=$!
 
 # Print connection info
 echo "Connect with: ssh -p $PORT $(whoami)@$(hostname)"
-# Explicitly print user for easier parsing if needed in future
-echo "User: $(whoami)"
 
 # Wait for SSHD to exit
 wait $PID
