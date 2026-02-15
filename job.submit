@@ -1,0 +1,18 @@
+# job.submit
+executable = entrypoint.sh
+arguments = 
+
+output = job.out
+error = job.err
+log = job.log
+
+should_transfer_files = NO
+
+stream_output = True
+stream_error = True
+
+request_cpus = 1
+request_memory = 512MB
+request_disk = 512MB
+
+queue
